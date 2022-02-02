@@ -1,0 +1,261 @@
+---
+title: "Hypothesis Testing Simulation"
+author: "Vera Zhou"
+output: pdf_document
+header-includes:
+-   \usepackage{fancyhdr}
+-   \pagestyle{fancy}
+-   \fancyhead[RE,RO]{This document has been edited to reduce visibility/searchability}
+-   \fancyhead[CE,CO]{}
+-   \fancypagestyle{plain}{\pagestyle{fancy}}
+-   \fancyhead[LE,LO]{}
+---
+# Do NFL players run faster or slower than rugby players?        
+*This is a hypothetical study with fake data set. Some existing hypothesis tests functions and packages in R are not used in this project, to show the calculation steps.* 
+Despite their similarities, there is no definitive way to compare the running speed of athletes from different sports. 10 NFL players and 10 rugby players, therefore, participated in a sprint test. 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+dat<-read.csv("dat.csv")
+```
+## 1. Are the true mean finishing time is the same for both groups?
+I will conduct a two-sided test for this hypothetical study.        
+$H_0:{\bar X_{NFL}} = {\bar X_{Rugby}}$     
+$H_a:{\bar X_{NFL}} \neq {\bar X_{Rugby}}$      
+
+Because a two-sided test allots half of the alpha, that a one-sided test would have, to test the statistical significance in either direction. The difference between the two groups has to be relatively larger for us to be able to reject the null hypothesis.         
+However, the one-tailed test would provide more power to test in one direction of interest. If we use a one-sided test, $H_0:{\bar X_{NFL}} < {\bar X_{Rugby}}$ or $H_0:{\bar X_{NFL}} > {\bar X_{Rugby}}$, then we would have more power to detect if ${\bar X_{NFL}}$ is smaller or larger than ${\bar X_{Rugby}}$. But this also means if the "wrong" hypothesis is selected, the power of the "wrong" one-sided test is smaller than that of the two-sided test.       
+
+```{r Difference in sample mean}
+diff<-mean(dat$NFL)-mean(dat$Rugby)
+cat("Difference in sample mean in finishing times for the two groups is",diff)
+```
+    
+The following section will calculate the variance of the difference in mean step by step. We shall assume the variance of the finishing time distributions for the two groups is equal, from the variance sum law, we know that:
+$Var({\bar X_{NFL}} - {\bar X_{Rugby}}) = Var({\bar X_{NFL}})+ Var({\bar X_{Rugby}})$       
+
+AND $Var_{pooled}= \frac{S^2_{NFL}(N_1 -1)+S^2_{NFL}(N_2 -1)}{N_1 + N_2 -2}$             
+$Var_{(\bar X_{NFL})}= \frac{\sigma^2_{NFL}}{N_1}$, $Var_{(\bar X_{Rugby})}= \frac{\sigma^2_{Rugby}}{N_2}$        
+Therefore, $Var({\bar X_{NFL}} - {\bar X_{Rugby}}) = \frac{Var_{pooled}}{N_1} +\frac{Var_{pooled}}{N_2} ={Var_{pooled}} \cdot (\frac{1}{N_1}+\frac{1}{N_2})$      
+$Var({\bar X_{NFL}} - {\bar X_{Rugby}}) = \frac{S^2_{NFL}(N_1 -1)+S^2_{Rugby}(N_2 -1)}{N_1 + N_2 -2} \cdot  (\frac{1}{N_1}+\frac{1}{N_2})$
+
+
+```{r variance of mean difference }
+#calculate step by step
+#variance of both groups
+varNFL<-var(dat$NFL)
+varRugby<-var(dat$Rugby)
+#sample size of both groups
+N1<-nrow(dat)
+N2<-nrow(dat)
+#pooled variance
+Varpool<-(varNFL*(N1-1)+varRugby*(N2-1))/(N1+N2-2)
+Vardiff<-Varpool*(1/N1+1/N2)
+cat("Variance is",Vardiff)
+```
+    
+I use a two-sample t-test to test $H_0:{\bar X_{NFL}} = {\bar X_{Rugby}}$.
+```{r ttest statistic}
+#t-test score is the difference between mean, divided by their standard error
+tteststat<-diff/sqrt(Vardiff)
+#pvalue: Use the Student t Distribution to get the pvalue
+pvalue1<-pt(tteststat,2*N1-2, lower.tail=T)*2 #side note: sample size is the same, using either N1 or N2 is fine here
+#set alpha
+alpha <- 0.05
+#Rejection region
+lreject<-qt(alpha/2, 2*N1 - 2)
+hreject<-qt(alpha/2, 2*N1 - 2, lower.tail=F)
+cat(" The test statistic is",round(tteststat,3),"\n","And the pvalue for this dataset is", round(pvalue1,3),"\n","The rejection region is between", round(lreject, 3),"and", round(hreject,3))
+
+```
+Setting the significance level at 5%, the rejection region for this problem is between +2.101 and - 2.101. We would reject the null if t-test statistics is either bigger than 2.101 or smaller than -2.101. Our t test statistics is -0.555, therefore we fail to reject the null, and we have no evidence against that finishing time is the same for the Rugby group and NFL group.       
+
+However, using a two-sample t-test statistic is not appropriate for this study, because of small data size, no prior knowledge on population distribution, and subsequent false assumption on equal variance.         
+
+We also assume the data are normally distributed, and we can check this assumption.
+```{r Shapiro-Wilk}
+# Shapiro-Wilk normality test for NFL players
+shapiro.test(dat$NFL)
+# Shapiro-Wilk normality test for Rugby players
+shapiro.test(dat$Rugby)
+```
+From the output, the two p-values are smaller than the significance level of 0.05, implying that the distribution of the data is significantly different from the normal distribution. In other words, we cannot assume normality.        
+
+As for the equal variances, we can check this assumption:
+
+```{r equalvar}
+var.test(dat$NFL,dat$Rugby)
+```
+The p-value is 0.00306, which is smaller than the significance level of 0.05, indicating that we can reject the null hypothesis of equal variance.       
+Obviously, this dataset fails to meet the normality and equal variance, and a two-sample t-test is not appropriate for it.            
+
+# 2. An alternative hypothesis to test if the two groups are at the same speed       
+    
+If two groups have the same finishing time, then we shall expect NFL players are as likely to be faster than Rugby players as Rugby players to be faster than NFL players.        
+$H_0:{P(X_{NFL}<X_{Rugby})} = {P(X_{Rugby}<X_{NFL}) }$      
+$H_a:{P(X_{NFL}<X_{Rugby})} = {P(X_{Rugby}<X_{NFL}) }$      
+In this case, we shall use the Mann-Whitney U-test, which can be used to test whether two groups are likely to draw from the same population, by comparing all pairs of members from the two groups. In other words, we assume NFL players and Rugby players run at the same speed, then we hope to test if their finishing time comes from the same distribution.        
+```{r U-statistic}
+#Calculate U-statistic
+NFL <-dat$NFL
+Rugby<-dat$Rugby
+# rank from lowest to highest
+ranks = rank(c(NFL, Rugby))
+# sum of the ranks in NFL group
+HR = sum(ranks[1:10])
+# sum of the ranks in Rugby group
+TR = sum(ranks[11:20])
+
+#Write a for-loop to calculate U-statistic 
+UNFL<-0
+URugby<-0
+for (i in 1:length(dat$NFL)){
+  for(j in 1:length(dat$Rugby)){
+    UNFL<-ifelse(dat$NFL[i] < dat$Rugby[j],UNFL+1,UNFL)
+    URugby<-ifelse(dat$NFL[i] > dat$Rugby[j],URugby+1,URugby)
+  }
+}
+
+cat("The U-statistic for NFL is",UNFL,".")
+cat(" The U-statistic for Rugby is",URugby)
+
+```
+
+
+The expected U-statistic for each group should be 50 if the two groups come from the same population. Because the expected p-value that a group's finishing time must be shorter than your opponent = 0.5, and the expected sum of the ranks would be expected rank* 10 members = $(1+20)*10/2*10=105$. Recall that the sum of the ranks will always equal n(n+1)/2. As a check on our assignment of ranks, we have 10(10+1)/2=55, and U1+U2 is always equal to $N1*N2$, so the expected U-statistic for each group should be $55+10*10-105=50$.        
+
+When the sample size is large enough, the U-statistic is approximately normally distributed, with the current null hypothesis.
+```{r}
+#standard deviation for this normal distribution
+varUstat<-sqrt(N1*N2*(N1+N2+1)/12)
+expUstat<-50
+
+#z-statistics=(U_stats-mean)/standard deviation
+ZNFL<-(UNFL-expUstat)/varUstat
+pzh<-(1-pnorm(ZNFL))*2
+
+ZRugbyUstat<-(URugby-expUstat)/varUstat
+pzt<-pnorm(ZRugbyUstat)*2
+
+cat("The z-statistics for the Mann-Whitney U-test for NFL",round(ZNFL,3),",")
+cat("and the p-values is",round(pzh,3),".")
+
+cat("The z-statistics for the Mann-Whitney U-test for Rugby",round(ZRugbyUstat,3),",")
+cat("and the p-values is",round(pzt,3),".")
+
+```
+The p-value is 0.0191 and at the significance level of 0.05, the null hypothesis can be rejected. Similarly, we can use Wilcox rank sum test to test the same hypothesis. Wilcox rank sum test only assumes the samples are independent of each other and populations have equal variance, but it does not assume normality.       
+
+```{r wilcox}
+
+#Set exact=false: treat the data as continuous
+#Set correct=FALSE: calculate the p-value using asymptotic approximation
+
+#sum of run for NFL
+wilcox.test(dat$Rugby,dat$NFL,exact=F,correct=F)
+#sum of rank for Rugby
+wilcox.test(dat$NFL,dat$Rugby,exact=F,correct=F)
+```
+The p-value of the Wilcox test is 0.0191, and at a significance level of 0.05, we shall reject the null hypothesis just like the previous conclusion.        
+
+
+# 3. A third way to test our hypothesis of interest:        
+If NFL players and Rugby players have the same speed, then we should not be able to tell if a sample is an NFL player or a Rugby player just by looking at its finishing time. That is, switching the identifier of the samples for the two groups should not change the distributions of the expected outcomes.        
+We shall simulate the null distribution by permuting the group labels and using the distribution of test statistics to see if NFL players and Rugby players indeed have the same speed.       
+```{r simulation}
+set.seed(1) 
+# Number of simulation
+nIter <- 3000 
+#data and counts
+time<-c(NFL, Rugby)
+N1<-length(NFL)
+N2<-length(Rugby)
+expUstat<-50
+varUstat<-sqrt(N1*N2*(N1+N2+1)/12)
+
+# Empty vector to store 
+permuted_diff<- rep(0, nIter) 
+permuted_t<- rep(0, nIter) 
+permuted_Uh<- rep(0, nIter) 
+permuted_Ut<- rep(0, nIter) 
+permuted_z<- rep(0, nIter) 
+permuted_WNFL<- rep(0, nIter) 
+permuted_WRugby<- rep(0, nIter) 
+# Permutation
+# Assume the first 10 are NFL, 11-20 are Rugby
+for (i in 1:nIter) {
+  tempdataset <- sample(time, length(time), replace = F)
+  tempNFL<-tempdataset[1:N1]
+  tempRugby<-tempdataset[(N1+1):length(time)]
+  tempvar<-((1/N1+1/N2))*(var(tempNFL)+var(tempRugby))*(N1-1)/(N1+N2-2)
+  permuted_diff[i] <- mean(tempNFL)-mean(tempRugby)#mean diff
+  permuted_t[i]<- permuted_diff[i]/sqrt(tempvar)
+  #t according to 1
+  # rank from lowest to highest
+  tempranks = rank(c(tempNFL, tempRugby))
+  # sum of the ranks in NFL
+  permuted_WNFL[i] = sum(tempranks[1:N1])
+   # sum of the ranks in Rugby
+  permuted_WRugby[i] = sum(tempranks[(N1+1):(N1+N2)])
+#U-statistic for NFL
+  permuted_Uh[i]<- N1*N2+(N1+1)*N1/2-permuted_WNFL[i]
+#U-statistic for Rugby
+ permuted_Ut[i]<-N1*N2+(N2+1)*N2/2-permuted_WRugby[i]
+#z-statistics
+permuted_z[i]<-(permuted_Ut[i]-expUstat)/varUstat
+}
+```
+
+
+```{r plots}
+# Plot the sampling distribution
+par(mfrow=c(2,2))
+hist(permuted_diff)
+hist(permuted_t)
+hist(permuted_Uh)
+hist(permuted_Ut)
+hist(permuted_z)
+hist(permuted_WNFL)
+hist(permuted_WRugby)
+
+
+```
+  
+The sampling distribution of the difference in mean and the sampling distribution of t-statistic are roughly binomial. All other sampling distributions are roughly normal. Nonetheless, the mean of each sampling distribution should be approximately equal to the corresponding test statistics. The first two sampling distribution again suggests that we should not apply a two-sample t-test to this problem, as the underlying assumptions are not met, the sampling distribution is not normally distributed.        
+Assuming the null hypothesis is true, for the sampling distribution, I expect the mean value of ${\bar X_{NFL}} - {\bar X_{Rugby}}$ to be 0, mean value of t statistic to be 0, mean value of u statistic to be 50,  mean value of z statistic to be 0, and mean value of WNFL and WRugby to be 105. By simply eyeballing those graphs, we have a hard time getting a conclusion. To test the null hypothesis, we shall calculate the p-value for a two-sided test.       
+      
+```{r pvalue for simulation}
+
+pforsimu <- function(obs, simu) {
+if (obs > mean(simu)) 
+  return(2*sum(simu > obs)/length(simu)) 
+  else return(2*sum(simu < obs)/length(simu))
+}
+
+#mean diff
+pforsimu(diff,permuted_diff)
+#Alternative:(sum(permuted_diff<diff)/nIter)*2
+
+#t statistics
+pforsimu(tteststat,permuted_t)
+#Alternative:(sum(permuted_t<tteststat)/nIter)*2
+
+#sampling distribution of u statistics
+pforsimu(UNFL,permuted_Uh)
+#Alternative:(sum(permuted_Uh>UNFL)/nIter)*2
+#Alternative:(sum(permuted_Ut<URugby)/nIter)*2
+
+#sampling distribution of z statistics
+pforsimu(ZRugbyUstat,permuted_z)
+#Alternative:(sum(permuted_z<ZRugbyUstat)/nIter)*2
+
+#sampling distribution of Wilcox’s rank sum statistics
+pforsimu(HR,permuted_WNFL)
+#Alternative:(sum(permuted_WNFL<HR)/nIter)*2
+#Alternative:(sum(permuted_WRugby>TR)/nIter)*2
+```
+At a significant level of 5%, the p-values of U statistics, Z score, and W statistics are less than alpha, and we reject the null and conclude that the two groups are significantly different. Yet, the p-values of the difference in mean and t statistics are more than alpha, and it is mainly due to the extreme outliers. Those two p-values would fail to reject the null hypothesis.         
+For data sets like this, when the sample size is small and the distribution of the data is not prescribed, we should be careful to use a two-sample t-test, which is better for equal variance(either paired or not paired). Permutation methods reflect the actual randomization, and after a number of iterations, it will produce a sampling distribution, and its mean would approximate the true parameter of interests. Nonparametric tests are more reliable for those situations, such as the Mann Whitney U-Test, because it does not assume the normal distribution of the population and is less sensitive to the presence of outliers.
+
+The overall conclusion for this fake data set is that the finishing times of NFL players and Rugby players are significantly different, despite small sample sizes and extreme outliers.
