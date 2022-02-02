@@ -1,0 +1,12 @@
+[
+  "test_module.py::test_template[test_five_problems_arrangement]",
+  "test_module.py::test_template[test_five_problems_with_solutions]",
+  "test_module.py::test_template[test_four_problems_arrangement]",
+  "test_module.py::test_template[test_incorrect_operator]",
+  "test_module.py::test_template[test_only_digits]",
+  "test_module.py::test_template[test_too_many_digits]",
+  "test_module.py::test_template[test_too_many_problems]",
+  "test_module.py::test_template[test_two_problems_arrangement1]",
+  "test_module.py::test_template[test_two_problems_arrangement2]",
+  "test_module.py::test_template[test_two_problems_with_solutions]"
+]
