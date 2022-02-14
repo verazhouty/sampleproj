@@ -6,6 +6,7 @@ For any questions, please email me at tz2156@nyu.edu
 Current uploaded projects:    
 -Arithmetic Formatter (Freecodecamp project)    
 -Hypothesis testing using parametric and nonparametric methods    
+-Pageview Timeseries Visualizer (Data Analysis with Python Projects)  
 -R package practice project | opt calculator    
 
 Will be uploaded soon:    
